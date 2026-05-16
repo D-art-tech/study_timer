@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ガチ勉強タイマー（フォルダ整理版）</title>
+    <title>勉強タイマー</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -87,19 +87,27 @@
 </div>
 
 <script>
-    let totalSeconds = 0;          // 過去に保存された合計勉強秒数
-    let currentSessionSeconds = 0; // 今回のスタートから経過した秒数
+    let totalSeconds = 0;          // 過去の合計勉強秒数
+    let currentSessionSeconds = 0; // 今回のセッションの経過秒数
     let timerInterval = null;
     let isRunning = false;
-    let startTime = null;          // スタートを押した本当の時刻
+    let startTime = null;
 
     let animationInterval = null;  // アニメーション用のタイマー
-    let currentFrame = 1;          // 1: 左の猫、2: 右の猫
+    let currentFrame = 1;          // 1: 左のポーズ、2: 右のポーズ
 
     // --- 【設定パラメータ】 ---
-    const CHANGE_TIME_SECONDS = 10; // 10秒で変化（テスト用）
-    const STORAGE_KEY = 'study_timer_spritesheet_seconds';
-    const IMAGE_CHANGED = "https://picsum.photos/id/1025/150/150"; // 目標達成後のテスト画像
+    const CHANGE_TIME_SECONDS = 10; // 目標時間（テスト用に10秒）
+    const STORAGE_KEY = 'study_timer_animated_mouse_and_cat_seconds';
+    
+    // 画像のパス（両方とも img フォルダに入っている前提です）
+    const MOUSE_IMAGE = "img/mouse_spritesheet.png";
+    const CAT_IMAGE = "img/cat_spritesheet.png";
+
+    // 【重要】それぞれの動物の「シフト量（ずらすピクセル数）」
+    // 画像によって猫が窓の真ん中からずれる場合は、ここを微調整してください！
+    const MOUSE_SHIFT = "-140px"; 
+    const CAT_SHIFT = "-135px";  
     // --------------------------
 
     const characterElement = document.getElementById('character');
@@ -107,24 +115,24 @@
     const startBtn = document.getElementById('startBtn');
     const resetBtn = document.getElementById('resetBtn');
 
-    // ページが読み込まれたとき
+    // 起動時にデータを読み込む
     window.addEventListener('load', () => {
         const savedSeconds = localStorage.getItem(STORAGE_KEY);
         if (savedSeconds !== null) {
             totalSeconds = parseInt(savedSeconds, 10);
             displayTime(totalSeconds);
         }
-        initCharacter(); // 猫ちゃんの初期表示
+        initCharacter(); // 初期表示の判定
     });
 
-    // 画面が閉じられたら（バックグラウンドにいったら）強制セーブしてストップ（ずる防止）
+    // 画面が非表示になったらずる防止でストップ
     document.addEventListener('visibilitychange', () => {
         if (document.hidden && isRunning) {
             stopTimer();
         }
     });
 
-    // スタート・ストップボタン
+    // スタート・ストップ
     startBtn.addEventListener('click', () => {
         if (isRunning) {
             stopTimer();
@@ -133,32 +141,34 @@
         }
     });
 
-    // タイマー開始
     function startTimer() {
         startTime = Date.now();
-        timerInterval = setInterval(updateTimer, 200);      // 時間の監視
-        animationInterval = setInterval(animateCharacter, 500); // 0.5秒ごとにアニメーション
+        timerInterval = setInterval(updateTimer, 200);
+        
+        // 【修正】キャラクターがアニメーション中か目標達成後かで、適切なアニメーションを即座に開始
+        animateCharacter(); // 初回実行して遅延をなくす
+        animationInterval = setInterval(animateCharacter, 500); // 0.5秒ごとにコマ切り替え
+        
         startBtn.textContent = 'ストップ';
         isRunning = true;
     }
 
-    // タイマー停止（保存）
     function stopTimer() {
         clearInterval(timerInterval);
         clearInterval(animationInterval);
         
         totalSeconds += currentSessionSeconds;
         currentSessionSeconds = 0;
-        localStorage.setItem(STORAGE_KEY, totalSeconds); // ブラウザにセーブ
+        localStorage.setItem(STORAGE_KEY, totalSeconds);
         
         startBtn.textContent = 'スタート';
         isRunning = false;
         
         displayTime(totalSeconds);
-        initCharacter(); // 止まったら最初のポーズ（左の猫）に戻す
+        initCharacter(); // タイマーが止まったら現在のキャラクターの初期ポーズ（左側）に固定
     }
 
-    // リセットボタン
+    // リセット
     resetBtn.addEventListener('click', () => {
         if (confirm('勉強時間をリセットして0秒に戻しますか？')) {
             clearInterval(timerInterval);
@@ -167,43 +177,54 @@
             startBtn.textContent = 'スタート';
             totalSeconds = 0;
             currentSessionSeconds = 0;
-            localStorage.removeItem(STORAGE_KEY); // セーブデータを消去
+            localStorage.removeItem(STORAGE_KEY);
             displayTime(0);
             initCharacter();
         }
     });
 
-    // 1枚の画像をスライドさせてアニメーションさせる関数
+    // アニメーションを制御する関数
     function animateCharacter() {
+        currentFrame = (currentFrame === 1) ? 2 : 1;
+        let currentShift = "0px";
+
+        // 目標時間（10秒）未満のときは「ねずみ」
         if ( (totalSeconds + currentSessionSeconds) < CHANGE_TIME_SECONDS ) {
-            currentFrame = (currentFrame === 1) ? 2 : 1;
-            
-            if (currentFrame === 1) {
-                // 左半分（1枚目の猫）を表示
-                characterElement.style.transform = "translateX(0px)";
-            } else {
-                // 右半分（2枚目の猫）を表示（画像を左に150pxずらす）
-                characterElement.style.transform = "translateX(-136px)";
-            }
+            characterElement.src = MOUSE_IMAGE;
+            characterElement.style.width = "300px"; 
+            currentShift = MOUSE_SHIFT; // ねずみのシフト量
+        } 
+        // 10秒を超えたら「ねこ」
+        else {
+            characterElement.src = CAT_IMAGE;
+            characterElement.style.width = "300px"; 
+            currentShift = CAT_SHIFT; // ねこのシフト量
+        }
+
+        // コマを切り替えて動かす
+        if (currentFrame === 1) {
+            characterElement.style.transform = "translateX(0px)"; // 左（ポーズ1）
+        } else {
+            characterElement.style.transform = `translateX(${currentShift})`; // 右（ポーズ2）へシフト
         }
     }
 
-    // キャラクターの初期状態を設定する関数
+    // キャラクターの初期状態を設定する関数（タイマー停止時・起動時）
     function initCharacter() {
         if (totalSeconds < CHANGE_TIME_SECONDS) {
-            // 目標未満：imgフォルダの中のスプライトシートを使う
-            characterElement.src = "img/cat_spritesheet.png";
+            // 目標未満：ねずみの初期ポーズ（左側）
+            characterElement.src = MOUSE_IMAGE;
             characterElement.style.width = "300px"; 
             characterElement.style.transform = "translateX(0px)";
         } else {
-            // 目標達成後：テスト用の画像を表示（横幅を150pxに戻す）
-            characterElement.src = IMAGE_CHANGED;
-            characterElement.style.width = "150px";
+            // 目標達成後：ねこの初期ポーズ（左側）
+            characterElement.src = CAT_IMAGE;
+            characterElement.style.width = "300px"; 
             characterElement.style.transform = "translateX(0px)";
         }
     }
 
-    // タイマーのカウント処理
+    // タイマーのカウント
     function updateTimer() {
         if (!isRunning) return;
         const elapsedTimeMs = Date.now() - startTime;
@@ -211,7 +232,7 @@
         displayTime(totalSeconds + currentSessionSeconds);
     }
 
-    // 時間の表示を「00:00」の形に整える
+    // 時間表示の整形
     function displayTime(secondsInput) {
         let minutes = Math.floor(secondsInput / 60);
         let seconds = secondsInput % 60;
