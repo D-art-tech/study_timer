@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>勉強タイマー</title>
+    <style>
+        /* スマートフォン向けに中央配置にするスタイル */
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f2f5;
+        }
+
+        .container {
+            text-align: center;
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            max-width: 90%;
+            width: 300px;
+        }
+
+        #timer {
+            font-size: 2.5rem;
+            margin: 20px 0;
+            font-weight: bold;
+            color: #333;
+        }
+
+        /* キャラクター画像の表示サイズ設定 */
+        #character {
+            width: 150px;
+            height: 150px;
+            object-fit: contain;
+            margin-bottom: 20px;
+        }
+
+        button {
+            font-size: 1.2rem;
+            padding: 10px 30px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        button:active {
+            background-color: #45a049;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <!-- テスト用にプレースホルダー画像を使用しています（後でお好みの画像に変更可能です） -->
+    <img id="character" src="https://picsum.photos/id/237/150/150" alt="キャラクター">
+    <div id="timer">00:00</div>
+    <button id="startBtn">スタート</button>
+</div>
+
+<script>
+    let totalSeconds = 0;
+    let timerInterval = null;
+    let isRunning = false;
+
+    // 調整可能なパラメータ（何秒で変化させるか）
+    const CHANGE_TIME_SECONDS = 10; // テスト用に10秒で変化
+
+    // 変化前後の画像URL
+    const IMAGE_START = "https://picsum.photos/id/237/150/150"; // 初期（犬の画像）
+    const IMAGE_CHANGED = "https://picsum.photos/id/1025/150/150"; // 変化後（パペットの画像）
+
+    const timerElement = document.getElementById('timer');
+    const characterElement = document.getElementById('character');
+    const startBtn = document.getElementById('startBtn');
+
+    startBtn.addEventListener('click', () => {
+        if (isRunning) {
+            clearInterval(timerInterval);
+            startBtn.textContent = 'スタート';
+            isRunning = false;
+        } else {
+            timerInterval = setInterval(updateTimer, 1000);
+            startBtn.textContent = 'ストップ';
+            isRunning = true;
+        }
+    });
+
+    function updateTimer() {
+        totalSeconds++;
+        
+        // 時間の表示を「分:秒」に整形
+        let minutes = Math.floor(totalSeconds / 60);
+        let seconds = totalSeconds % 60;
+        
+        timerElement.textContent = 
+            String(minutes).padStart(2, '0') + ':' + String(seconds).padStart(2, '0');
+
+        // 一定時間が経過したら画像を切り替える
+        if (totalSeconds >= CHANGE_TIME_SECONDS) {
+            characterElement.src = IMAGE_CHANGED;
+        }
+    }
+</script>
+
+</body>
+</html>
