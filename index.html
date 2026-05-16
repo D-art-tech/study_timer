@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ガチ勉強タイマー（ずる防止版）</title>
+    <title>完全ずる防止タイマー</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -74,15 +74,14 @@
 </div>
 
 <script>
-    let totalSeconds = 0;      // これまでに積み上げた合計勉強秒数
-    let currentSessionSeconds = 0; // 今回のスタートから現在までに経過した秒数
+    let totalSeconds = 0;      // これまでに保存された合計秒数
+    let currentSessionSeconds = 0; // スタートしてから現在のセッションで経過した秒数
     let timerInterval = null;
     let isRunning = false;
-    let startTime = null;      // スタートボタンを押した「本当の時刻」
+    let startTime = null;      // スタートボタンを押した時刻
 
-    // 設定パラメータ
     const CHANGE_TIME_SECONDS = 10; // 10秒で変化（テスト用）
-    const STORAGE_KEY = 'study_timer_total_seconds';
+    const STORAGE_KEY = 'study_timer_perfect_seconds';
 
     const IMAGE_START = "https://picsum.photos/id/237/150/150";
     const IMAGE_CHANGED = "https://picsum.photos/id/1025/150/150";
@@ -92,7 +91,7 @@
     const startBtn = document.getElementById('startBtn');
     const resetBtn = document.getElementById('resetBtn');
 
-    // 画面が開かれた時に、過去の合計時間を読み込む
+    // 起動時にデータを読み込む
     window.addEventListener('load', () => {
         const savedSeconds = localStorage.getItem(STORAGE_KEY);
         if (savedSeconds !== null) {
@@ -102,25 +101,47 @@
         }
     });
 
-    // スタート/ストップボタン
-    startBtn.addEventListener('click', () => {
-        if (isRunning) {
-            // ストップした時：今回のセッション時間をこれまでの合計に足して保存
-            clearInterval(timerInterval);
-            totalSeconds += currentSessionSeconds;
-            currentSessionSeconds = 0;
-            localStorage.setItem(STORAGE_KEY, totalSeconds); // ここで初めて保存
-
-            startBtn.textContent = 'スタート';
-            isRunning = false;
-        } else {
-            // スタートした時：今の「本当の時刻」を記録
-            startTime = Date.now(); 
-            timerInterval = setInterval(updateTimer, 200); // ズレを防ぐため細かくチェック
-            startBtn.textContent = 'ストップ';
-            isRunning = true;
+    // 画面の表示・非表示（アプリを閉じた時）を監視する機能
+    document.addEventListener('visibilitychange', () => {
+        // 画面が非表示（ホーム画面に戻った、別タブに移ったなど）になった場合
+        if (document.hidden) {
+            if (isRunning) {
+                // 動いていたら、その瞬間に強制ストップさせて時間を保存する
+                stopTimer();
+            }
         }
     });
+
+    // スタート・ストップボタンの処理
+    startBtn.addEventListener('click', () => {
+        if (isRunning) {
+            stopTimer();
+        } else {
+            startTimer();
+        }
+    });
+
+    // タイマーを開始する関数
+    function startTimer() {
+        startTime = Date.now();
+        timerInterval = setInterval(updateTimer, 200);
+        startBtn.textContent = 'ストップ';
+        isRunning = true;
+    }
+
+    // タイマーを停止して保存する関数
+    function stopTimer() {
+        clearInterval(timerInterval);
+        totalSeconds += currentSessionSeconds;
+        currentSessionSeconds = 0;
+        localStorage.setItem(STORAGE_KEY, totalSeconds); // データを保存
+        
+        startBtn.textContent = 'スタート';
+        isRunning = false;
+        
+        displayTime(totalSeconds);
+        checkCharacter(totalSeconds);
+    }
 
     // リセットボタン
     resetBtn.addEventListener('click', () => {
@@ -136,22 +157,18 @@
         }
     });
 
-    // タイマーの更新処理（実際の時間経過を計算）
+    // タイマーの更新
     function updateTimer() {
         if (!isRunning) return;
-
-        // 「今の時刻」と「スタートした時刻」の差（ミリ秒）を計算して秒に直す
         const elapsedTimeMs = Date.now() - startTime;
         currentSessionSeconds = Math.floor(elapsedTimeMs / 1000);
 
-        // 表示する時間は【過去の合計 ＋ 今回の経過時間】
         const displayTotal = totalSeconds + currentSessionSeconds;
-        
         displayTime(displayTotal);
         checkCharacter(displayTotal);
     }
 
-    // 時間を表示用に整形
+    // 時間表示の整形
     function displayTime(secondsInput) {
         let minutes = Math.floor(secondsInput / 60);
         let seconds = secondsInput % 60;
@@ -159,7 +176,7 @@
             String(minutes).padStart(2, '0') + ':' + String(seconds).padStart(2, '0');
     }
 
-    // 画像変更
+    // 画像切り替え
     function checkCharacter(secondsInput) {
         if (secondsInput >= CHANGE_TIME_SECONDS) {
             characterElement.src = IMAGE_CHANGED;
