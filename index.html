@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>勉強タイマー（保存機能付き）</title>
+    <title>ガチ勉強タイマー（ずる防止版）</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -74,13 +74,15 @@
 </div>
 
 <script>
-    let totalSeconds = 0;
+    let totalSeconds = 0;      // これまでに積み上げた合計勉強秒数
+    let currentSessionSeconds = 0; // 今回のスタートから現在までに経過した秒数
     let timerInterval = null;
     let isRunning = false;
+    let startTime = null;      // スタートボタンを押した「本当の時刻」
 
     // 設定パラメータ
     const CHANGE_TIME_SECONDS = 10; // 10秒で変化（テスト用）
-    const STORAGE_KEY = 'study_timer_seconds'; // ブラウザに保存する際のデータの名前
+    const STORAGE_KEY = 'study_timer_total_seconds';
 
     const IMAGE_START = "https://picsum.photos/id/237/150/150";
     const IMAGE_CHANGED = "https://picsum.photos/id/1025/150/150";
@@ -90,53 +92,66 @@
     const startBtn = document.getElementById('startBtn');
     const resetBtn = document.getElementById('resetBtn');
 
-    // --- 画面が開かれた時の処理（データの読み込み） ---
+    // 画面が開かれた時に、過去の合計時間を読み込む
     window.addEventListener('load', () => {
         const savedSeconds = localStorage.getItem(STORAGE_KEY);
         if (savedSeconds !== null) {
-            totalSeconds = parseInt(savedSeconds, 10); // 保存された文字列を数値に変換
+            totalSeconds = parseInt(savedSeconds, 10);
             displayTime(totalSeconds);
             checkCharacter(totalSeconds);
         }
     });
 
-    // スタート/ストップボタンの操作
+    // スタート/ストップボタン
     startBtn.addEventListener('click', () => {
         if (isRunning) {
+            // ストップした時：今回のセッション時間をこれまでの合計に足して保存
             clearInterval(timerInterval);
+            totalSeconds += currentSessionSeconds;
+            currentSessionSeconds = 0;
+            localStorage.setItem(STORAGE_KEY, totalSeconds); // ここで初めて保存
+
             startBtn.textContent = 'スタート';
             isRunning = false;
         } else {
-            timerInterval = setInterval(updateTimer, 1000);
+            // スタートした時：今の「本当の時刻」を記録
+            startTime = Date.now(); 
+            timerInterval = setInterval(updateTimer, 200); // ズレを防ぐため細かくチェック
             startBtn.textContent = 'ストップ';
             isRunning = true;
         }
     });
 
-    // リセットボタンの操作（データを削除して0に戻す）
+    // リセットボタン
     resetBtn.addEventListener('click', () => {
         if (confirm('勉強時間をリセットして0秒に戻しますか？')) {
             clearInterval(timerInterval);
             isRunning = false;
             startBtn.textContent = 'スタート';
             totalSeconds = 0;
-            localStorage.removeItem(STORAGE_KEY); // 保存データを削除
-            displayTime(totalSeconds);
+            currentSessionSeconds = 0;
+            localStorage.removeItem(STORAGE_KEY);
+            displayTime(0);
             characterElement.src = IMAGE_START;
         }
     });
 
+    // タイマーの更新処理（実際の時間経過を計算）
     function updateTimer() {
-        totalSeconds++;
+        if (!isRunning) return;
+
+        // 「今の時刻」と「スタートした時刻」の差（ミリ秒）を計算して秒に直す
+        const elapsedTimeMs = Date.now() - startTime;
+        currentSessionSeconds = Math.floor(elapsedTimeMs / 1000);
+
+        // 表示する時間は【過去の合計 ＋ 今回の経過時間】
+        const displayTotal = totalSeconds + currentSessionSeconds;
         
-        // 1秒進むごとにブラウザへ保存
-        localStorage.setItem(STORAGE_KEY, totalSeconds);
-        
-        displayTime(totalSeconds);
-        checkCharacter(totalSeconds);
+        displayTime(displayTotal);
+        checkCharacter(displayTotal);
     }
 
-    // 時間を表示用に整形する関数
+    // 時間を表示用に整形
     function displayTime(secondsInput) {
         let minutes = Math.floor(secondsInput / 60);
         let seconds = secondsInput % 60;
@@ -144,7 +159,7 @@
             String(minutes).padStart(2, '0') + ':' + String(seconds).padStart(2, '0');
     }
 
-    // 時間に応じて画像をチェック・変更する関数
+    // 画像変更
     function checkCharacter(secondsInput) {
         if (secondsInput >= CHANGE_TIME_SECONDS) {
             characterElement.src = IMAGE_CHANGED;
