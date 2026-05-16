@@ -3,9 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>勉強タイマー</title>
+    <title>勉強タイマー（保存機能付き）</title>
     <style>
-        /* スマートフォン向けに中央配置にするスタイル */
         body {
             font-family: Arial, sans-serif;
             display: flex;
@@ -34,7 +33,6 @@
             color: #333;
         }
 
-        /* キャラクター画像の表示サイズ設定 */
         #character {
             width: 150px;
             height: 150px;
@@ -42,28 +40,37 @@
             margin-bottom: 20px;
         }
 
+        .button-group {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+
         button {
-            font-size: 1.2rem;
-            padding: 10px 30px;
-            background-color: #4CAF50;
+            font-size: 1rem;
+            padding: 10px 20px;
             color: white;
             border: none;
             border-radius: 5px;
             cursor: pointer;
         }
 
-        button:active {
-            background-color: #45a049;
-        }
+        #startBtn { background-color: #4CAF50; }
+        #startBtn:active { background-color: #45a049; }
+
+        #resetBtn { background-color: #f44336; }
+        #resetBtn:active { background-color: #da190b; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <!-- テスト用にプレースホルダー画像を使用しています（後でお好みの画像に変更可能です） -->
     <img id="character" src="https://picsum.photos/id/237/150/150" alt="キャラクター">
     <div id="timer">00:00</div>
-    <button id="startBtn">スタート</button>
+    <div class="button-group">
+        <button id="startBtn">スタート</button>
+        <button id="resetBtn">リセット</button>
+    </div>
 </div>
 
 <script>
@@ -71,17 +78,29 @@
     let timerInterval = null;
     let isRunning = false;
 
-    // 調整可能なパラメータ（何秒で変化させるか）
-    const CHANGE_TIME_SECONDS = 10; // テスト用に10秒で変化
+    // 設定パラメータ
+    const CHANGE_TIME_SECONDS = 10; // 10秒で変化（テスト用）
+    const STORAGE_KEY = 'study_timer_seconds'; // ブラウザに保存する際のデータの名前
 
-    // 変化前後の画像URL
-    const IMAGE_START = "https://picsum.photos/id/237/150/150"; // 初期（犬の画像）
-    const IMAGE_CHANGED = "https://picsum.photos/id/1025/150/150"; // 変化後（パペットの画像）
+    const IMAGE_START = "https://picsum.photos/id/237/150/150";
+    const IMAGE_CHANGED = "https://picsum.photos/id/1025/150/150";
 
     const timerElement = document.getElementById('timer');
     const characterElement = document.getElementById('character');
     const startBtn = document.getElementById('startBtn');
+    const resetBtn = document.getElementById('resetBtn');
 
+    // --- 画面が開かれた時の処理（データの読み込み） ---
+    window.addEventListener('load', () => {
+        const savedSeconds = localStorage.getItem(STORAGE_KEY);
+        if (savedSeconds !== null) {
+            totalSeconds = parseInt(savedSeconds, 10); // 保存された文字列を数値に変換
+            displayTime(totalSeconds);
+            checkCharacter(totalSeconds);
+        }
+    });
+
+    // スタート/ストップボタンの操作
     startBtn.addEventListener('click', () => {
         if (isRunning) {
             clearInterval(timerInterval);
@@ -94,19 +113,43 @@
         }
     });
 
+    // リセットボタンの操作（データを削除して0に戻す）
+    resetBtn.addEventListener('click', () => {
+        if (confirm('勉強時間をリセットして0秒に戻しますか？')) {
+            clearInterval(timerInterval);
+            isRunning = false;
+            startBtn.textContent = 'スタート';
+            totalSeconds = 0;
+            localStorage.removeItem(STORAGE_KEY); // 保存データを削除
+            displayTime(totalSeconds);
+            characterElement.src = IMAGE_START;
+        }
+    });
+
     function updateTimer() {
         totalSeconds++;
         
-        // 時間の表示を「分:秒」に整形
-        let minutes = Math.floor(totalSeconds / 60);
-        let seconds = totalSeconds % 60;
+        // 1秒進むごとにブラウザへ保存
+        localStorage.setItem(STORAGE_KEY, totalSeconds);
         
+        displayTime(totalSeconds);
+        checkCharacter(totalSeconds);
+    }
+
+    // 時間を表示用に整形する関数
+    function displayTime(secondsInput) {
+        let minutes = Math.floor(secondsInput / 60);
+        let seconds = secondsInput % 60;
         timerElement.textContent = 
             String(minutes).padStart(2, '0') + ':' + String(seconds).padStart(2, '0');
+    }
 
-        // 一定時間が経過したら画像を切り替える
-        if (totalSeconds >= CHANGE_TIME_SECONDS) {
+    // 時間に応じて画像をチェック・変更する関数
+    function checkCharacter(secondsInput) {
+        if (secondsInput >= CHANGE_TIME_SECONDS) {
             characterElement.src = IMAGE_CHANGED;
+        } else {
+            characterElement.src = IMAGE_START;
         }
     }
 </script>
