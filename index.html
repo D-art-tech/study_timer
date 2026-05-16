@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>完全ずる防止タイマー</title>
+    <title>完全ずる防止タイマー（画像切り出し版）</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -26,18 +26,28 @@
             width: 300px;
         }
 
+        /* --- 【重要】ここを修正：画像を表示する「窓」を作ります --- */
+        .character-window {
+            width: 150px;       /* 表示したいサイズ（元の画像の横幅の半分） */
+            height: 150px;      /* 表示したいサイズ */
+            overflow: hidden;   /* 窓からはみ出た部分を見えなくする */
+            margin: 0 auto 20px auto;
+            mix-blend-mode: multiply; /* 背景白を透過する魔法 */
+        }
+
+        #character {
+            width: 300px;       /* 2枚並んだ画像全体の横幅（150px × 2） */
+            height: 150px;
+            object-fit: fill;
+            display: block;
+            transform: translateX(0px); /* 左右にスライドさせるための設定 */
+        }
+
         #timer {
             font-size: 2.5rem;
             margin: 20px 0;
             font-weight: bold;
             color: #333;
-        }
-
-        #character {
-            width: 150px;
-            height: 150px;
-            object-fit: contain;
-            margin-bottom: 20px;
         }
 
         .button-group {
@@ -65,7 +75,10 @@
 <body>
 
 <div class="container">
-    <img id="character" src="https://picsum.photos/id/237/150/150" alt="キャラクター">
+    <div class="character-window">
+        <img id="character" src="cat_spritesheet.png" alt="キャラクター">
+    </div>
+    
     <div id="timer">00:00</div>
     <div class="button-group">
         <button id="startBtn">スタート</button>
@@ -74,20 +87,21 @@
 </div>
 
 <script>
-    let totalSeconds = 0;      // これまでに保存された合計秒数
-    let currentSessionSeconds = 0; // スタートしてから現在のセッションで経過した秒数
+    let totalSeconds = 0;
+    let currentSessionSeconds = 0;
     let timerInterval = null;
     let isRunning = false;
-    let startTime = null;      // スタートボタンを押した時刻
+    let startTime = null;
+
+    let animationInterval = null;
+    let currentFrame = 1; // 1: 左の猫、2: 右の猫
 
     const CHANGE_TIME_SECONDS = 10; // 10秒で変化（テスト用）
-    const STORAGE_KEY = 'study_timer_perfect_seconds';
-
-    const IMAGE_START = "https://picsum.photos/id/237/150/150";
+    const STORAGE_KEY = 'study_timer_spritesheet_seconds';
     const IMAGE_CHANGED = "https://picsum.photos/id/1025/150/150";
 
-    const timerElement = document.getElementById('timer');
     const characterElement = document.getElementById('character');
+    const timerElement = document.getElementById('timer');
     const startBtn = document.getElementById('startBtn');
     const resetBtn = document.getElementById('resetBtn');
 
@@ -97,22 +111,18 @@
         if (savedSeconds !== null) {
             totalSeconds = parseInt(savedSeconds, 10);
             displayTime(totalSeconds);
-            checkCharacter(totalSeconds);
         }
+        initCharacter(); 
     });
 
-    // 画面の表示・非表示（アプリを閉じた時）を監視する機能
+    // 画面の表示・非表示を監視
     document.addEventListener('visibilitychange', () => {
-        // 画面が非表示（ホーム画面に戻った、別タブに移ったなど）になった場合
-        if (document.hidden) {
-            if (isRunning) {
-                // 動いていたら、その瞬間に強制ストップさせて時間を保存する
-                stopTimer();
-            }
+        if (document.hidden && isRunning) {
+            stopTimer();
         }
     });
 
-    // スタート・ストップボタンの処理
+    // スタート・ストップボタン
     startBtn.addEventListener('click', () => {
         if (isRunning) {
             stopTimer();
@@ -121,68 +131,84 @@
         }
     });
 
-    // タイマーを開始する関数
     function startTimer() {
         startTime = Date.now();
         timerInterval = setInterval(updateTimer, 200);
+        animationInterval = setInterval(animateCharacter, 500); 
         startBtn.textContent = 'ストップ';
         isRunning = true;
     }
 
-    // タイマーを停止して保存する関数
     function stopTimer() {
         clearInterval(timerInterval);
+        clearInterval(animationInterval);
+        
         totalSeconds += currentSessionSeconds;
         currentSessionSeconds = 0;
-        localStorage.setItem(STORAGE_KEY, totalSeconds); // データを保存
+        localStorage.setItem(STORAGE_KEY, totalSeconds);
         
         startBtn.textContent = 'スタート';
         isRunning = false;
         
         displayTime(totalSeconds);
-        checkCharacter(totalSeconds);
+        initCharacter(); // ストップした時は最初のコマに戻す
     }
 
     // リセットボタン
     resetBtn.addEventListener('click', () => {
         if (confirm('勉強時間をリセットして0秒に戻しますか？')) {
             clearInterval(timerInterval);
+            clearInterval(animationInterval);
             isRunning = false;
             startBtn.textContent = 'スタート';
             totalSeconds = 0;
             currentSessionSeconds = 0;
             localStorage.removeItem(STORAGE_KEY);
             displayTime(0);
-            characterElement.src = IMAGE_START;
+            initCharacter();
         }
     });
 
-    // タイマーの更新
+    // --- 【重要】ここを修正：画像を左右にスライドさせてアニメーションする ---
+    function animateCharacter() {
+        if ( (totalSeconds + currentSessionSeconds) < CHANGE_TIME_SECONDS ) {
+            currentFrame = (currentFrame === 1) ? 2 : 1;
+            
+            if (currentFrame === 1) {
+                // 左半分（1枚目の猫）を表示
+                characterElement.style.transform = "translateX(0px)";
+            } else {
+                // 右半分（2枚目の猫）を表示（画像を左に150pxずらす）
+                characterElement.style.transform = "translateX(-150px)";
+            }
+        }
+    }
+
+    function initCharacter() {
+        if (totalSeconds < CHANGE_TIME_SECONDS) {
+            characterElement.src = "cat_spritesheet.png";
+            characterElement.style.width = "300px"; // 元の2枚並んだサイズ
+            characterElement.style.transform = "translateX(0px)"; // 左の猫に戻す
+        } else {
+            // 目標達成後はテスト画像（1枚のサイズにする）
+            characterElement.src = IMAGE_CHANGED;
+            characterElement.style.width = "150px";
+            characterElement.style.transform = "translateX(0px)";
+        }
+    }
+
     function updateTimer() {
         if (!isRunning) return;
         const elapsedTimeMs = Date.now() - startTime;
         currentSessionSeconds = Math.floor(elapsedTimeMs / 1000);
-
-        const displayTotal = totalSeconds + currentSessionSeconds;
-        displayTime(displayTotal);
-        checkCharacter(displayTotal);
+        displayTime(totalSeconds + currentSessionSeconds);
     }
 
-    // 時間表示の整形
     function displayTime(secondsInput) {
         let minutes = Math.floor(secondsInput / 60);
         let seconds = secondsInput % 60;
         timerElement.textContent = 
             String(minutes).padStart(2, '0') + ':' + String(seconds).padStart(2, '0');
-    }
-
-    // 画像切り替え
-    function checkCharacter(secondsInput) {
-        if (secondsInput >= CHANGE_TIME_SECONDS) {
-            characterElement.src = IMAGE_CHANGED;
-        } else {
-            characterElement.src = IMAGE_START;
-        }
     }
 </script>
 
