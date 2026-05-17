@@ -115,7 +115,6 @@
         #resetBtn { background-color: #f44336; }
 
         /* --- クイズ画面のスタイル --- */
-        /* メニュー画面用のボタン */
         .menu-title { font-size: 1.2rem; font-weight: bold; margin-bottom: 20px; color: #334155; }
         .menu-btn {
             width: 100%;
@@ -133,12 +132,24 @@
         }
         .menu-btn:hover { background-color: #2563eb; }
 
-        /* クイズ本番画面 */
-        .quiz-section { display: none; } /* 最初は隠しておく */
+        .quiz-section { display: none; }
         .quiz-section.active { display: block; }
 
         .question-num { font-size: 0.9rem; color: #666; margin-bottom: 10px; }
-        .word { font-size: 2.2rem; font-weight: bold; color: #2c3e50; margin-bottom: 20px; }
+        .word { font-size: 1.4rem; font-weight: bold; color: #2c3e50; margin-bottom: 15px; }
+        
+        /* 💡 追加：クイズ画像を表示するエリア */
+        .quiz-image-container {
+            margin-bottom: 15px;
+            display: none; /* デフォルトは非表示 */
+        }
+        .quiz-image-container img {
+            max-width: 100%;
+            height: auto;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+        }
+
         .choices { display: flex; flex-direction: column; gap: 10px; }
         
         .choice-btn {
@@ -202,11 +213,17 @@
                 <div class="menu-title">どのジャンルに挑戦する？</div>
                 <button class="menu-btn" onclick="startQuiz('english_verbs')">英単語（動詞）</button>
                 <button class="menu-btn" onclick="startQuiz('english_nouns')">英単語（名詞）</button>
+                <button class="menu-btn" style="background-color: #f59e0b;" onclick="startQuiz('science_ohm')">理科（オームの法則）</button>
             </div>
 
             <div id="quiz-game-section" class="quiz-section">
                 <div id="question-count" class="question-num">第 1 問</div>
                 <div id="word-display" class="word">loading...</div>
+                
+                <div id="quiz-image-area" class="quiz-image-container">
+                    <img id="quiz-img" src="" alt="問題の図">
+                </div>
+
                 <div class="choices">
                     <button class="choice-btn" onclick="checkAnswer(0)">1. <span id="choice0">---</span></button>
                     <button class="choice-btn" onclick="checkAnswer(1)">2. <span id="choice1">---</span></button>
@@ -249,7 +266,7 @@
     let currentFrame = 1;
 
     const CHANGE_TIME_SECONDS = 10; 
-    const STORAGE_KEY = 'study_timer_json_system_seconds';
+    const STORAGE_KEY = 'study_timer_json_image_system_seconds';
     const MOUSE_IMAGE = "img/mouse_spritesheet.png";
     const CAT_IMAGE = "img/cat_spritesheet.png";
     const MOUSE_SHIFT = "-150px"; 
@@ -267,7 +284,7 @@
             displayTime(totalSeconds);
         }
         initCharacter();
-        loadQuizData(); // 🚀 起動時にJSONファイルを読み込む
+        loadQuizData(); 
     });
 
     document.addEventListener('visibilitychange', () => {
@@ -334,6 +351,7 @@
         }
     }
 
+    // タイマー停止時の初期化
     function initCharacter() {
         if (totalSeconds < CHANGE_TIME_SECONDS) {
             characterElement.src = MOUSE_IMAGE;
@@ -360,10 +378,10 @@
     }
 
     // ==========================================
-    // クイズ用のプログラム（JSON外部読み込み＆メニュー対応版）
+    // クイズ用のプログラム（画像表示対応版）
     // ==========================================
-    let allQuizData = null;      // JSONから読み込んだ全データが入る変数
-    let currentCategoryData = []; // 現在選ばれている科目の問題リスト
+    let allQuizData = null;      
+    let currentCategoryData = []; 
     let currentQuestionIndex = 0;
     let answered = false;
 
@@ -374,38 +392,28 @@
     const resultElement = document.getElementById("result-message");
     const nextButton = document.getElementById("nextBtn");
     const choiceButtons = document.querySelectorAll(".choice-btn");
+    
+    // 💡 画像用要素の取得
+    const imageArea = document.getElementById("quiz-image-area");
+    const quizImg = document.getElementById("quiz-img");
 
-    // 🚀 JSONファイルを読み込む関数（プロの書き方！）
     function loadQuizData() {
         fetch('questions.json')
             .then(response => response.json())
-            .then(data => {
-                allQuizData = data; // 読み込み成功したら変数に保存
-            })
-            .catch(error => {
-                console.error('JSONの読み込みに失敗しました。書き方にミスがないか確認してください:', error);
-            });
+            .then(data => { allQuizData = data; })
+            .catch(error => { console.error('JSON読み込み失敗:', error); });
     }
 
-    // クイズを開始する（メニューでボタンが押されたとき）
     function startQuiz(categoryKey) {
-        if (!allQuizData) {
-            alert("データの読み込み中です。少し待ってから再度お試しください。");
-            return;
-        }
-        // 選ばれたジャンルの問題をセット
+        if (!allQuizData) { alert("データ読み込み中です。"); return; }
         currentCategoryData = allQuizData[categoryKey];
         currentQuestionIndex = 0;
-
-        // 画面の表示切り替え（メニューを隠して、ゲーム画面を出す）
         menuSection.style.display = "none";
         gameSection.classList.add("active");
-        document.querySelector(".choices").style.display = "flex"; // 終了後に隠した選択肢を復活
-
+        document.querySelector(".choices").style.display = "flex";
         loadQuestion();
     }
 
-    // 問題を表示する
     function loadQuestion() {
         answered = false;
         resultElement.textContent = "";
@@ -415,12 +423,20 @@
         const currentData = currentCategoryData[currentQuestionIndex];
         countElement.textContent = `第 ${currentQuestionIndex + 1} 問 / 全 ${currentCategoryData.length} 問`;
         wordElement.textContent = currentData.word;
+
+        // 💡 修正：問題データに「image」があるかチェックして表示/非表示を切り替える
+        if (currentData.image) {
+            quizImg.src = currentData.image;
+            imageArea.style.display = "block"; // 画像エリアを表示
+        } else {
+            imageArea.style.display = "none";  // 画像エリアを隠す
+        }
+
         for (let i = 0; i < 4; i++) {
             document.getElementById(`choice${i}`).textContent = currentData.choices[i];
         }
     }
 
-    // 回答チェック
     function checkAnswer(selectedIndex) {
         if (answered) return;
         answered = true;
@@ -442,22 +458,20 @@
         nextButton.style.display = "inline-block";
     }
 
-    // 次の問題へ
     function nextQuestion() {
         currentQuestionIndex++;
         if (currentQuestionIndex < currentCategoryData.length) {
             loadQuestion();
         } else {
-            // 全問終了時
             countElement.textContent = "終了！";
             wordElement.textContent = "お疲れ様でした！";
+            imageArea.style.display = "none"; // 終了したら画像は隠す
             document.querySelector(".choices").style.display = "none";
             resultElement.textContent = "このジャンルのすべての問題が完了しました。";
             nextButton.style.display = "none";
         }
     }
 
-    // ジャンル選択メニューに戻る
     function backToMenu() {
         gameSection.classList.remove("active");
         menuSection.style.display = "block";
