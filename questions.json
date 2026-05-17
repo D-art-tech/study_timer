@@ -1,0 +1,31 @@
+{
+  "english_verbs": [
+    {
+      "word": "achieve",
+      "choices": ["〜を達成する", "〜を拒絶する", "〜を信じる", "〜を議論する"],
+      "correct": 0
+    },
+    {
+      "word": "provide",
+      "choices": ["〜を守る", "〜を証明する", "〜を禁止する", "〜を提供する"],
+      "correct": 3
+    },
+    {
+      "word": "improve",
+      "choices": ["〜を向上させる", "〜を認める", "〜を思い出す", "〜を想像する"],
+      "correct": 0
+    }
+  ],
+  "english_nouns": [
+    {
+      "word": "environment",
+      "choices": ["実験", "環境", "政府", "経済"],
+      "correct": 1
+    },
+    {
+      "word": "opportunity",
+      "choices": ["責任", "平等", "機会", "目的地"],
+      "correct": 2
+    }
+  ]
+}
