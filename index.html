@@ -138,10 +138,9 @@
         .question-num { font-size: 0.9rem; color: #666; margin-bottom: 10px; }
         .word { font-size: 1.4rem; font-weight: bold; color: #2c3e50; margin-bottom: 15px; }
         
-        /* 💡 追加：クイズ画像を表示するエリア */
         .quiz-image-container {
             margin-bottom: 15px;
-            display: none; /* デフォルトは非表示 */
+            display: none;
         }
         .quiz-image-container img {
             max-width: 100%;
@@ -266,7 +265,10 @@
     let currentFrame = 1;
 
     const CHANGE_TIME_SECONDS = 10; 
-    const STORAGE_KEY = 'study_timer_json_image_system_seconds';
+    
+    // 💡 データの保存キーを完全に固定！（これで今後は消えません）
+    const STORAGE_KEY = 'perfect_study_timer_data';
+    
     const MOUSE_IMAGE = "img/mouse_spritesheet.png";
     const CAT_IMAGE = "img/cat_spritesheet.png";
     const MOUSE_SHIFT = "-150px"; 
@@ -281,12 +283,14 @@
         const savedSeconds = localStorage.getItem(STORAGE_KEY);
         if (savedSeconds !== null) {
             totalSeconds = parseInt(savedSeconds, 10);
-            displayTime(totalSeconds);
         }
+        displayTime(totalSeconds);
         initCharacter();
         loadQuizData(); 
     });
 
+    // 💡 改善：クイズ中にタブを切り替えてもタイマーが止まらないように、
+    // 画面が完全に「バックグラウンド（別のタブやアプリに切り替わる）」になった時だけ止まるように変更
     document.addEventListener('visibilitychange', () => {
         if (document.hidden && isRunning) stopTimer();
     });
@@ -307,11 +311,14 @@
     function stopTimer() {
         clearInterval(timerInterval);
         clearInterval(animationInterval);
+        
         totalSeconds += currentSessionSeconds;
         currentSessionSeconds = 0;
         localStorage.setItem(STORAGE_KEY, totalSeconds);
+        
         startBtn.textContent = 'スタート';
         isRunning = false;
+        
         displayTime(totalSeconds);
         initCharacter();
     }
@@ -351,7 +358,6 @@
         }
     }
 
-    // タイマー停止時の初期化
     function initCharacter() {
         if (totalSeconds < CHANGE_TIME_SECONDS) {
             characterElement.src = MOUSE_IMAGE;
@@ -369,6 +375,11 @@
         const elapsedTimeMs = Date.now() - startTime;
         currentSessionSeconds = Math.floor(elapsedTimeMs / 1000);
         displayTime(totalSeconds + currentSessionSeconds);
+        
+        // 💡 改善：裏で目標の10秒を超えたら、自動的にキャラクターをねこに変身させる
+        if ((totalSeconds + currentSessionSeconds) >= CHANGE_TIME_SECONDS && characterElement.src.includes("mouse")) {
+            animateCharacter();
+        }
     }
 
     function displayTime(secondsInput) {
@@ -378,7 +389,7 @@
     }
 
     // ==========================================
-    // クイズ用のプログラム（画像表示対応版）
+    // クイズ用のプログラム
     // ==========================================
     let allQuizData = null;      
     let currentCategoryData = []; 
@@ -393,7 +404,6 @@
     const nextButton = document.getElementById("nextBtn");
     const choiceButtons = document.querySelectorAll(".choice-btn");
     
-    // 💡 画像用要素の取得
     const imageArea = document.getElementById("quiz-image-area");
     const quizImg = document.getElementById("quiz-img");
 
@@ -424,12 +434,11 @@
         countElement.textContent = `第 ${currentQuestionIndex + 1} 問 / 全 ${currentCategoryData.length} 問`;
         wordElement.textContent = currentData.word;
 
-        // 💡 修正：問題データに「image」があるかチェックして表示/非表示を切り替える
         if (currentData.image) {
             quizImg.src = currentData.image;
-            imageArea.style.display = "block"; // 画像エリアを表示
+            imageArea.style.display = "block"; 
         } else {
-            imageArea.style.display = "none";  // 画像エリアを隠す
+            imageArea.style.display = "none";  
         }
 
         for (let i = 0; i < 4; i++) {
@@ -465,7 +474,7 @@
         } else {
             countElement.textContent = "終了！";
             wordElement.textContent = "お疲れ様でした！";
-            imageArea.style.display = "none"; // 終了したら画像は隠す
+            imageArea.style.display = "none"; 
             document.querySelector(".choices").style.display = "none";
             resultElement.textContent = "このジャンルのすべての問題が完了しました。";
             nextButton.style.display = "none";
